@@ -20,10 +20,13 @@ def load_data():
         df = pd.DataFrame(columns=[
             "唯一ID", "记录时间", "实验名称", "实验人员", "实验数据", "备注", "保存文件名", "原始文件名"
         ])
+    
+    # 统一转为字符串，避免空值/类型错误
     required = ["唯一ID", "记录时间", "实验名称", "实验人员", "实验数据", "备注", "保存文件名", "原始文件名"]
     for col in required:
         if col not in df.columns:
             df[col] = ""
+        df[col] = df[col].fillna("").astype(str)
     return df
 
 # 保存数据
@@ -83,13 +86,16 @@ st.divider()
 st.subheader("🔍 筛选记录")
 df = load_data()
 search = st.text_input("搜索关键词")
+
 if search:
-    df_show = df[
+    # 修复：统一转为字符串再搜索
+    mask = (
         df["实验名称"].str.contains(search, na=False) |
         df["实验人员"].str.contains(search, na=False) |
         df["实验数据"].str.contains(search, na=False) |
         df["备注"].str.contains(search, na=False)
-    ]
+    )
+    df_show = df[mask]
 else:
     df_show = df.copy()
 
@@ -106,35 +112,38 @@ if not df_show.empty:
                     save_data(df)
                     st.rerun()
             with col_info:
-                # 🔥 修复空值报错
-                time_str = str(row.get("记录时间", ""))
-                name_str = str(row.get("实验名称", ""))
+                time_str = row.get("记录时间", "")
+                name_str = row.get("实验名称", "")
                 st.write(f"**{time_str}** | **{name_str}**")
 
-                experimenter_str = str(row.get("实验人员", ""))
-                data_str = str(row.get("实验数据", ""))
+                experimenter_str = row.get("实验人员", "")
+                data_str = row.get("实验数据", "")
                 st.write(f"人员: {experimenter_str} | 数据: {data_str}")
 
-                note_str = str(row.get("备注", ""))
+                note_str = row.get("备注", "")
                 st.write(f"备注: {note_str}")
 
-                save_files = str(row["保存文件名"]).split(",") if pd.notna(row["保存文件名"]) else []
-                orig_files = str(row["原始文件名"]).split(",") if pd.notna(row["原始文件名"]) else []
-                if save_files and save_files[0]:
+                save_files = row["保存文件名"].split(",") if row["保存文件名"] else []
+                orig_files = row["原始文件名"].split(",") if row["原始文件名"] else []
+                
+                if save_files:
                     st.write("📎 附件：")
                     for save_fn, orig_fn in zip(save_files, orig_files):
                         save_fn = save_fn.strip()
                         orig_fn = orig_fn.strip()
                         fp = os.path.join("upload_files", save_fn)
                         if os.path.exists(fp):
-                            if fp.endswith(("png", "jpg", "jpeg")):
-                                st.image(fp, width=300)
+                            try:
+                                if fp.lower().endswith(("png", "jpg", "jpeg")):
+                                    st.image(fp, width=300)
+                            except:
+                                pass
                             with open(fp, "rb") as f:
                                 st.download_button(
-                                    label="📂 下载 " + orig_fn,
+                                    label=f"📂 下载 {orig_fn}",
                                     data=f,
                                     file_name=orig_fn,
-                                    key="dl_" + row['唯一ID'] + "_" + save_fn
+                                    key=f"dl_{row['唯一ID']}_{save_fn}"
                                 )
             st.divider()
 else:
@@ -145,6 +154,6 @@ csv_data = df.to_csv(index=False, encoding="utf-8-sig").encode("utf-8-sig")
 st.download_button(
     "📥 导出全部记录",
     data=csv_data,
-    file_name="实验记录_" + datetime.now().strftime("%Y%m%d") + ".csv",
+    file_name=f"实验记录_{datetime.now().strftime('%Y%m%d')}.csv",
     mime="text/csv"
 )
