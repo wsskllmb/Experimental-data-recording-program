@@ -106,9 +106,17 @@ if not df_show.empty:
                     save_data(df)
                     st.rerun()
             with col_info:
-                st.write("**" + row['记录时间'] + "** | **" + row['实验名称'] + "**")
-                st.write("人员: " + str(row['实验人员']) + " | 数据: " + str(row['实验数据']))
-                st.write("备注: " + str(row['备注']))
+                # 🔥 修复空值报错
+                time_str = str(row.get("记录时间", ""))
+                name_str = str(row.get("实验名称", ""))
+                st.write(f"**{time_str}** | **{name_str}**")
+
+                experimenter_str = str(row.get("实验人员", ""))
+                data_str = str(row.get("实验数据", ""))
+                st.write(f"人员: {experimenter_str} | 数据: {data_str}")
+
+                note_str = str(row.get("备注", ""))
+                st.write(f"备注: {note_str}")
 
                 save_files = str(row["保存文件名"]).split(",") if pd.notna(row["保存文件名"]) else []
                 orig_files = str(row["原始文件名"]).split(",") if pd.notna(row["原始文件名"]) else []
